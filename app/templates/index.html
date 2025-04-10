@@ -1,0 +1,1087 @@
+{% extends "base.html" %}
+
+{% block title %}EXIF Metadata Editor - Upload and Edit{% endblock %}
+
+{% block head %}
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css" />
+<script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
+<style>
+    .upload-area-gradient {
+        background-image: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
+    }
+    .dark .upload-area-gradient {
+        background-image: linear-gradient(135deg, rgba(7, 89, 133, 0.1) 0%, rgba(12, 74, 110, 0.2) 100%);
+    }
+    
+    /* Drop area animations */
+    @keyframes pulse-border {
+        0%, 100% { border-color: rgba(14, 165, 233, 0.3); }
+        50% { border-color: rgba(14, 165, 233, 0.8); }
+    }
+    
+    .animate-pulse-border {
+        animation: pulse-border 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+    }
+    
+    /* Image card hover effect */
+    .image-card-hover {
+        transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    }
+    .image-card-hover:hover {
+        transform: translateY(-5px) scale(1.01);
+    }
+    
+    /* Smooth tab transitions */
+    .tab-content {
+        transition: all 0.3s ease-in-out;
+    }
+    
+    /* Card animations */
+    .animate-slide-up {
+        animation: slide-up 0.6s ease-out forwards;
+    }
+    
+    @keyframes slide-up {
+        from {
+            opacity: 0;
+            transform: translateY(20px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+    
+    .animate-fade-in {
+        animation: fade-in 0.5s ease-out forwards;
+    }
+    
+    @keyframes fade-in {
+        from { opacity: 0; }
+        to { opacity: 1; }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div x-data="imageUploader()" class="max-w-5xl mx-auto">
+    <div class="mb-8 overflow-hidden group">
+        <div class="bg-white dark:bg-dark-800 rounded-xl shadow-soft transition-all duration-300 transform hover:shadow-soft-lg overflow-hidden animate-slide-up image-card-hover">
+            <div class="px-6 py-5 border-b border-gray-100 dark:border-dark-700">
+                <h2 class="text-xl font-semibold text-dark-800 dark:text-dark-100 flex items-center">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2 text-primary-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                    </svg>
+                    Görsel Yükle
+                </h2>
+            </div>
+            
+            <!-- Drag-and-drop upload area -->
+            <div
+                class="border-2 border-dashed border-gray-200 dark:border-dark-700 rounded-lg m-6 p-8 text-center transition-all duration-300 upload-area-gradient"
+                :class="{
+                    'border-primary-400 shadow-lg shadow-primary-500/10 animate-pulse-border': isDragging,
+                    'hover:border-primary-300 hover:shadow-md': !isDragging
+                }"
+                @dragover.prevent="isDragging = true"
+                @dragleave.prevent="isDragging = false"
+                @drop.prevent="handleDrop($event)"
+                x-ref="dropzone"
+            >
+                <div class="space-y-4">
+                    <div 
+                        class="w-24 h-24 mx-auto rounded-full flex items-center justify-center transition-all duration-500"
+                        :class="isDragging ? 'bg-primary-200 dark:bg-primary-800/30 scale-110' : 'bg-primary-100 dark:bg-primary-900/20 group-hover:animate-float'"
+                    >
+                        <svg class="w-12 h-12 text-primary-500 dark:text-primary-400 transition-all duration-500" 
+                             :class="isDragging ? 'scale-110' : ''" 
+                             stroke="currentColor" fill="none" viewBox="0 0 48 48" aria-hidden="true">
+                            <path d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4h-12a4 4 0 01-4-4v-4m32-4l-3.172-3.172a4 4 0 00-5.656 0L28 28M8 32l9.172-9.172a4 4 0 015.656 0L28 28m0 0l4 4m4-24h8m-4-4v8m-12 4h.02" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+                        </svg>
+                    </div>
+                    <div class="flex flex-col sm:flex-row justify-center items-center text-sm text-dark-600 dark:text-dark-300">
+                        <label for="fileInput" class="relative cursor-pointer rounded-lg font-medium shadow-sm hover:shadow-md transition-all duration-300 focus-within:outline-none focus-within:ring-2 focus-within:ring-primary-500 focus-within:ring-offset-2 dark:focus-within:ring-offset-dark-800 overflow-hidden group/btn">
+                            <div class="absolute inset-0 bg-gradient-to-br from-primary-400 to-primary-600 dark:from-primary-500 dark:to-primary-700 transform transition-all duration-300 group-hover/btn:scale-105"></div>
+                            <span class="relative px-5 py-2.5 flex items-center text-white">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-2 transform transition-transform duration-300 group-hover/btn:-translate-y-1 group-hover/btn:translate-x-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                                </svg>
+                                Dosya Seç
+                            </span>
+                            <input id="fileInput" name="file" type="file" accept="image/*" class="sr-only" @change="handleFileSelect">
+                        </label>
+                        <p class="mt-2 sm:mt-0 sm:ml-3">veya buraya sürükleyip bırakın</p>
+                    </div>
+                    <p class="text-xs text-dark-500 dark:text-dark-400 py-2 px-3 bg-gray-50 dark:bg-dark-700/50 inline-block rounded-full mx-auto">
+                        PNG, JPG, GIF (max 10MB)
+                    </p>
+                </div>
+                
+                <!-- Loading indicator -->
+                <div x-show="isUploading" 
+                     x-transition:enter="transition ease-out duration-300"
+                     x-transition:enter-start="opacity-0 transform scale-95"
+                     x-transition:enter-end="opacity-100 transform scale-100"
+                     class="mt-6">
+                    <div class="w-full bg-gray-200 dark:bg-dark-700 rounded-full h-2 overflow-hidden">
+                        <div class="h-full rounded-full bg-gradient-to-r from-primary-400 via-primary-500 to-accent-500 relative" style="width: 100%">
+                            <div class="absolute inset-0 bg-gradient-to-r from-transparent via-white/30 to-transparent animate-[shimmer_2s_infinite_linear]"></div>
+                        </div>
+                    </div>
+                    <p class="mt-3 text-sm text-dark-500 dark:text-dark-400 flex items-center justify-center">
+                        <svg class="animate-spin -ml-1 mr-2 h-4 w-4 text-primary-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                        Görsel yükleniyor ve EXIF verileri işleniyor...
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- EXIF data display and edit section -->
+    <div x-show="currentImage" 
+         x-transition:enter="transition ease-out duration-500"
+         x-transition:enter-start="opacity-0 transform translate-y-8"
+         x-transition:enter-end="opacity-100 transform translate-y-0"
+         class="bg-white dark:bg-dark-800 rounded-xl shadow-soft overflow-hidden mb-8 image-card-hover">
+        <div class="flex flex-col">
+            <!-- Title bar with action buttons -->
+            <div class="px-6 py-5 border-b border-gray-100 dark:border-dark-700 flex justify-between items-center">
+                <h2 class="text-xl font-semibold text-dark-800 dark:text-dark-100 flex items-center">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2 text-primary-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                    </svg>
+                    Mevcut EXIF Bilgisi
+                </h2>
+                <button 
+                    @click="isEditing = !isEditing" 
+                    class="inline-flex items-center px-4 py-2 rounded-lg transition-all duration-200"
+                    :class="isEditing ? 
+                            'bg-red-100 text-red-600 hover:bg-red-200 dark:bg-red-900/20 dark:text-red-400 dark:hover:bg-red-900/30' : 
+                            'bg-primary-100 text-primary-600 hover:bg-primary-200 dark:bg-primary-900/20 dark:text-primary-400 dark:hover:bg-primary-900/30'"
+                >
+                    <svg x-show="!isEditing" xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-1.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                    </svg>
+                    <svg x-show="isEditing" x-cloak xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-1.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                    <span x-text="isEditing ? 'İptal' : 'Metadata Düzenle'"></span>
+                </button>
+            </div>
+            
+            <div class="p-6">
+                <div class="flex flex-col lg:flex-row gap-6">
+                    <!-- Image preview -->
+                    <div class="lg:w-1/3">
+                        <div class="rounded-lg overflow-hidden bg-gradient-to-br from-gray-100 to-gray-200 dark:from-dark-700 dark:to-dark-800 p-1 shadow-inner-lg aspect-square flex items-center justify-center">
+                            <img :src="'/uploads/' + currentImage" class="max-w-full max-h-full rounded-md shadow-sm object-contain animate-fade-in" alt="Uploaded image">
+                        </div>
+                        
+                        <div class="mt-4 rounded-lg p-4 bg-primary-50 dark:bg-primary-900/10 border border-primary-100 dark:border-primary-800/20">
+                            <h3 class="text-sm font-medium text-primary-800 dark:text-primary-300 mb-2 flex items-center">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-1.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                </svg>
+                                Dosya Bilgisi
+                            </h3>
+                            <div class="text-xs text-dark-600 dark:text-dark-400 space-y-1">
+                                <p class="flex justify-between">
+                                    <span class="text-dark-500 dark:text-dark-500">Dosya Adı:</span>
+                                    <span class="font-medium" x-text="currentImage.split('_').slice(1).join('_')"></span>
+                                </p>
+                                <p class="flex justify-between">
+                                    <span class="text-dark-500 dark:text-dark-500">Boyut:</span>
+                                    <span class="font-medium" x-text="exifData.FileSize ? formatFileSize(exifData.FileSize) : 'Bilinmiyor'"></span>
+                                </p>
+                                <p class="flex justify-between">
+                                    <span class="text-dark-500 dark:text-dark-500">Genişlik:</span>
+                                    <span class="font-medium" x-text="exifData.ImageWidth ? exifData.ImageWidth + ' px' : 'Bilinmiyor'"></span>
+                                </p>
+                                <p class="flex justify-between">
+                                    <span class="text-dark-500 dark:text-dark-500">Yükseklik:</span>
+                                    <span class="font-medium" x-text="exifData.ImageLength ? exifData.ImageLength + ' px' : 'Bilinmiyor'"></span>
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- EXIF data display and edit -->
+                    <div class="lg:w-2/3">
+                        <!-- Tabs for different EXIF sections -->
+                        <div class="mb-6">
+                            <div class="border-b border-gray-200 dark:border-dark-700">
+                                <div class="flex flex-wrap -mb-px" role="tablist">
+                                    <button 
+                                        @click="activeTab = 'basic'"
+                                        :class="{ 'border-primary-500 text-primary-600 dark:text-primary-400': activeTab === 'basic', 'border-transparent text-dark-500 hover:text-dark-700 dark:text-dark-400 dark:hover:text-dark-300': activeTab !== 'basic' }"
+                                        class="inline-flex items-center py-3 px-4 text-sm font-medium border-b-2 transition-colors"
+                                    >
+                                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                        </svg>
+                                        Temel Bilgiler
+                                    </button>
+                                    <button 
+                                        @click="activeTab = 'date'"
+                                        :class="{ 'border-primary-500 text-primary-600 dark:text-primary-400': activeTab === 'date', 'border-transparent text-dark-500 hover:text-dark-700 dark:text-dark-400 dark:hover:text-dark-300': activeTab !== 'date' }"
+                                        class="inline-flex items-center py-3 px-4 text-sm font-medium border-b-2 transition-colors"
+                                    >
+                                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                        </svg>
+                                        Tarih & Zaman
+                                    </button>
+                                    <button 
+                                        @click="activeTab = 'location'"
+                                        :class="{ 'border-primary-500 text-primary-600 dark:text-primary-400': activeTab === 'location', 'border-transparent text-dark-500 hover:text-dark-700 dark:text-dark-400 dark:hover:text-dark-300': activeTab !== 'location' }"
+                                        class="inline-flex items-center py-3 px-4 text-sm font-medium border-b-2 transition-colors"
+                                    >
+                                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                                        </svg>
+                                        Konum
+                                    </button>
+                                    <button 
+                                        @click="activeTab = 'camera'"
+                                        :class="{ 'border-primary-500 text-primary-600 dark:text-primary-400': activeTab === 'camera', 'border-transparent text-dark-500 hover:text-dark-700 dark:text-dark-400 dark:hover:text-dark-300': activeTab !== 'camera' }"
+                                        class="inline-flex items-center py-3 px-4 text-sm font-medium border-b-2 transition-colors"
+                                    >
+                                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
+                                        </svg>
+                                        Kamera
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Tab content -->
+                        <!-- Basic Info Tab -->
+                        <div x-show="activeTab === 'basic'" x-transition:enter="transition ease-out duration-200" x-transition:enter-start="opacity-0" x-transition:enter-end="opacity-100" class="mt-4">
+                            <template x-if="!isEditing">
+                                <div class="space-y-3">
+                                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                        <div class="p-4 rounded-lg bg-gray-50 dark:bg-dark-700 border border-gray-100 dark:border-dark-600 hover:shadow-soft transition-all duration-300">
+                                            <div class="flex justify-between items-start mb-2">
+                                                <h3 class="text-sm font-medium text-dark-600 dark:text-dark-300">Dosya Adı</h3>
+                                                <span class="px-2 py-1 text-xs rounded-full bg-gray-100 dark:bg-dark-600 text-dark-500 dark:text-dark-400">Temel Bilgi</span>
+                                            </div>
+                                            <p class="text-sm text-dark-800 dark:text-dark-200 break-all font-mono" x-text="currentImage.split('_').slice(1).join('_')"></p>
+                                        </div>
+                                        <div class="p-4 rounded-lg bg-gray-50 dark:bg-dark-700 border border-gray-100 dark:border-dark-600 hover:shadow-soft transition-all duration-300">
+                                            <div class="flex justify-between items-start mb-2">
+                                                <h3 class="text-sm font-medium text-dark-600 dark:text-dark-300">Dosya Boyutu</h3>
+                                                <span class="px-2 py-1 text-xs rounded-full bg-gray-100 dark:bg-dark-600 text-dark-500 dark:text-dark-400">Temel Bilgi</span>
+                                            </div>
+                                            <p class="text-sm text-dark-800 dark:text-dark-200 font-mono" x-text="exifData.FileSize ? formatFileSize(exifData.FileSize) : 'Bilinmiyor'"></p>
+                                        </div>
+                                        <div class="p-4 rounded-lg bg-gray-50 dark:bg-dark-700 border border-gray-100 dark:border-dark-600 hover:shadow-soft transition-all duration-300">
+                                            <div class="flex justify-between items-start mb-2">
+                                                <h3 class="text-sm font-medium text-dark-600 dark:text-dark-300">Genişlik</h3>
+                                                <span class="px-2 py-1 text-xs rounded-full bg-gray-100 dark:bg-dark-600 text-dark-500 dark:text-dark-400">Boyut</span>
+                                            </div>
+                                            <p class="text-sm text-dark-800 dark:text-dark-200 font-mono" x-text="exifData.ImageWidth ? exifData.ImageWidth + ' px' : 'Bilinmiyor'"></p>
+                                        </div>
+                                        <div class="p-4 rounded-lg bg-gray-50 dark:bg-dark-700 border border-gray-100 dark:border-dark-600 hover:shadow-soft transition-all duration-300">
+                                            <div class="flex justify-between items-start mb-2">
+                                                <h3 class="text-sm font-medium text-dark-600 dark:text-dark-300">Yükseklik</h3>
+                                                <span class="px-2 py-1 text-xs rounded-full bg-gray-100 dark:bg-dark-600 text-dark-500 dark:text-dark-400">Boyut</span>
+                                            </div>
+                                            <p class="text-sm text-dark-800 dark:text-dark-200 font-mono" x-text="exifData.ImageLength ? exifData.ImageLength + ' px' : 'Bilinmiyor'"></p>
+                                        </div>
+                                        <div class="p-4 rounded-lg bg-gray-50 dark:bg-dark-700 border border-gray-100 dark:border-dark-600 hover:shadow-soft transition-all duration-300">
+                                            <div class="flex justify-between items-start mb-2">
+                                                <h3 class="text-sm font-medium text-dark-600 dark:text-dark-300">MIME Tipi</h3>
+                                                <span class="px-2 py-1 text-xs rounded-full bg-gray-100 dark:bg-dark-600 text-dark-500 dark:text-dark-400">Format</span>
+                                            </div>
+                                            <p class="text-sm text-dark-800 dark:text-dark-200 font-mono" x-text="exifData.MIMEType || 'Bilinmiyor'"></p>
+                                        </div>
+                                        <div class="p-4 rounded-lg bg-gray-50 dark:bg-dark-700 border border-gray-100 dark:border-dark-600 hover:shadow-soft transition-all duration-300">
+                                            <div class="flex justify-between items-start mb-2">
+                                                <h3 class="text-sm font-medium text-dark-600 dark:text-dark-300">Renk Alanı</h3>
+                                                <span class="px-2 py-1 text-xs rounded-full bg-gray-100 dark:bg-dark-600 text-dark-500 dark:text-dark-400">Renk</span>
+                                            </div>
+                                            <p class="text-sm text-dark-800 dark:text-dark-200 font-mono" x-text="exifData.ColorSpace || 'Bilinmiyor'"></p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </template>
+                            <template x-if="isEditing">
+                                <div class="p-5 rounded-lg bg-gray-50 dark:bg-dark-800 border border-gray-100 dark:border-dark-700">
+                                    <div class="flex items-center space-x-2 mb-3 text-dark-500 dark:text-dark-400">
+                                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                        </svg>
+                                        <p class="text-sm">Temel özellikler düzenlenemez</p>
+                                    </div>
+                                </div>
+                            </template>
+                        </div>
+
+                        <!-- Date & Time Tab -->
+                        <div x-show="activeTab === 'date'" x-transition:enter="transition ease-out duration-200" x-transition:enter-start="opacity-0" x-transition:enter-end="opacity-100" class="mt-4">
+                            <template x-if="!isEditing">
+                                <div class="space-y-3">
+                                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                        <div class="p-4 rounded-lg bg-gray-50 dark:bg-dark-700 border border-gray-100 dark:border-dark-600 hover:shadow-soft transition-all duration-300">
+                                            <div class="flex justify-between items-start mb-2">
+                                                <h3 class="text-sm font-medium text-dark-600 dark:text-dark-300">Çekim Tarihi</h3>
+                                                <span class="px-2 py-1 text-xs rounded-full bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400">DateTimeOriginal</span>
+                                            </div>
+                                            <p class="text-sm text-dark-800 dark:text-dark-200 font-mono" x-text="exifData.DateTimeOriginal || 'Bilinmiyor'"></p>
+                                        </div>
+                                        <div class="p-4 rounded-lg bg-gray-50 dark:bg-dark-700 border border-gray-100 dark:border-dark-600 hover:shadow-soft transition-all duration-300">
+                                            <div class="flex justify-between items-start mb-2">
+                                                <h3 class="text-sm font-medium text-dark-600 dark:text-dark-300">Değiştirilme Tarihi</h3>
+                                                <span class="px-2 py-1 text-xs rounded-full bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400">DateTime</span>
+                                            </div>
+                                            <p class="text-sm text-dark-800 dark:text-dark-200 font-mono" x-text="exifData.DateTime || 'Bilinmiyor'"></p>
+                                        </div>
+                                        <div class="p-4 rounded-lg bg-gray-50 dark:bg-dark-700 border border-gray-100 dark:border-dark-600 hover:shadow-soft transition-all duration-300">
+                                            <div class="flex justify-between items-start mb-2">
+                                                <h3 class="text-sm font-medium text-dark-600 dark:text-dark-300">Dijitalleştirme Tarihi</h3>
+                                                <span class="px-2 py-1 text-xs rounded-full bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400">DateTimeDigitized</span>
+                                            </div>
+                                            <p class="text-sm text-dark-800 dark:text-dark-200 font-mono" x-text="exifData.DateTimeDigitized || 'Bilinmiyor'"></p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </template>
+                            <template x-if="isEditing">
+                                <div class="space-y-4">
+                                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                        <div class="p-4 rounded-lg bg-gray-50 dark:bg-dark-700 border border-gray-100 dark:border-dark-600">
+                                            <label for="DateTimeOriginal" class="block text-sm font-medium text-dark-700 dark:text-dark-300 mb-2">Çekim Tarihi</label>
+                                            <input type="datetime-local" id="DateTimeOriginal" x-model="editData.DateTimeOriginal" 
+                                                   class="w-full p-2.5 bg-white dark:bg-dark-800 border border-gray-300 dark:border-dark-600 text-dark-700 dark:text-dark-300 rounded-lg focus:ring-2 focus:ring-primary-500 dark:focus:ring-primary-500 focus:border-primary-500 dark:focus:border-primary-500">
+                                            <p class="mt-1.5 text-xs text-dark-500 dark:text-dark-400">Orijinal çekim tarih ve saati</p>
+                                        </div>
+                                        <div class="p-4 rounded-lg bg-gray-50 dark:bg-dark-700 border border-gray-100 dark:border-dark-600">
+                                            <label for="DateTime" class="block text-sm font-medium text-dark-700 dark:text-dark-300 mb-2">Değiştirilme Tarihi</label>
+                                            <input type="datetime-local" id="DateTime" x-model="editData.DateTime" 
+                                                   class="w-full p-2.5 bg-white dark:bg-dark-800 border border-gray-300 dark:border-dark-600 text-dark-700 dark:text-dark-300 rounded-lg focus:ring-2 focus:ring-primary-500 dark:focus:ring-primary-500 focus:border-primary-500 dark:focus:border-primary-500">
+                                            <p class="mt-1.5 text-xs text-dark-500 dark:text-dark-400">Görselin son değiştirilme tarih ve saati</p>
+                                        </div>
+                                        <div class="p-4 rounded-lg bg-gray-50 dark:bg-dark-700 border border-gray-100 dark:border-dark-600">
+                                            <label for="DateTimeDigitized" class="block text-sm font-medium text-dark-700 dark:text-dark-300 mb-2">Dijitalleştirme Tarihi</label>
+                                            <input type="datetime-local" id="DateTimeDigitized" x-model="editData.DateTimeDigitized" 
+                                                   class="w-full p-2.5 bg-white dark:bg-dark-800 border border-gray-300 dark:border-dark-600 text-dark-700 dark:text-dark-300 rounded-lg focus:ring-2 focus:ring-primary-500 dark:focus:ring-primary-500 focus:border-primary-500 dark:focus:border-primary-500">
+                                            <p class="mt-1.5 text-xs text-dark-500 dark:text-dark-400">Görselin dijital formata dönüştürüldüğü tarih ve saat</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </template>
+                        </div>
+
+                        <!-- Location Tab -->
+                        <div x-show="activeTab === 'location'" x-transition:enter="transition ease-out duration-200" x-transition:enter-start="opacity-0" x-transition:enter-end="opacity-100" class="mt-4">
+                            <template x-if="!isEditing">
+                                <div>
+                                    <div x-show="hasGpsData" class="space-y-4">
+                                        <div class="overflow-hidden rounded-lg shadow-sm border border-gray-100 dark:border-dark-700">
+                                            <div id="map" class="h-64 w-full"></div>
+                                        </div>
+                                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                            <div class="p-4 rounded-lg bg-gray-50 dark:bg-dark-700 border border-gray-100 dark:border-dark-600 hover:shadow-soft transition-all duration-300">
+                                                <div class="flex justify-between items-start mb-2">
+                                                    <h3 class="text-sm font-medium text-dark-600 dark:text-dark-300">Enlem</h3>
+                                                    <span class="px-2 py-1 text-xs rounded-full bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400">GPS</span>
+                                                </div>
+                                                <p class="text-sm text-dark-800 dark:text-dark-200 font-mono" x-text="formatLatLong(getLatitude())"></p>
+                                            </div>
+                                            <div class="p-4 rounded-lg bg-gray-50 dark:bg-dark-700 border border-gray-100 dark:border-dark-600 hover:shadow-soft transition-all duration-300">
+                                                <div class="flex justify-between items-start mb-2">
+                                                    <h3 class="text-sm font-medium text-dark-600 dark:text-dark-300">Boylam</h3>
+                                                    <span class="px-2 py-1 text-xs rounded-full bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400">GPS</span>
+                                                </div>
+                                                <p class="text-sm text-dark-800 dark:text-dark-200 font-mono" x-text="formatLatLong(getLongitude())"></p>
+                                            </div>
+                                            <div class="p-4 rounded-lg bg-gray-50 dark:bg-dark-700 border border-gray-100 dark:border-dark-600 hover:shadow-soft transition-all duration-300" x-show="exifData.GPSInfo && exifData.GPSInfo.GPSAltitude">
+                                                <div class="flex justify-between items-start mb-2">
+                                                    <h3 class="text-sm font-medium text-dark-600 dark:text-dark-300">Yükseklik</h3>
+                                                    <span class="px-2 py-1 text-xs rounded-full bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400">GPS</span>
+                                                </div>
+                                                <p class="text-sm text-dark-800 dark:text-dark-200 font-mono" x-text="exifData.GPSInfo.GPSAltitude + ' m'"></p>
+                                            </div>
+                                        </div>
+
+                                        <div class="p-4 rounded-lg bg-blue-50 dark:bg-blue-900/10 border border-blue-100 dark:border-blue-800/20 mt-4">
+                                            <p class="text-sm text-blue-800 dark:text-blue-300 flex items-start">
+                                                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                                </svg>
+                                                <span>Görsel konum bilgisi içeriyor. "Metadata Düzenle" butonuna tıklayarak bu bilgileri düzenleyebilirsiniz.</span>
+                                            </p>
+                                        </div>
+                                    </div>
+                                    <div x-show="!hasGpsData" class="flex flex-col items-center justify-center p-8 text-center">
+                                        <div class="w-16 h-16 rounded-full bg-gray-100 dark:bg-dark-700 flex items-center justify-center text-gray-400 dark:text-dark-500 mb-4">
+                                            <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                            </svg>
+                                        </div>
+                                        <p class="text-dark-500 dark:text-dark-400">Bu görselde GPS/konum bilgisi bulunamadı</p>
+                                        <div class="mt-4">
+                                            <button 
+                                                @click="() => { isEditing = true; activeTab = 'location'; }" 
+                                                class="text-sm px-4 py-2 bg-primary-50 dark:bg-primary-900/10 text-primary-600 dark:text-primary-400 rounded-lg border border-primary-100 dark:border-primary-800/20 hover:bg-primary-100 dark:hover:bg-primary-900/20 transition-colors"
+                                            >
+                                                Konum Bilgisi Ekle
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </template>
+                            <template x-if="isEditing">
+                                <div>
+                                    <div class="mb-4">
+                                        <label class="block text-sm font-medium text-dark-700 dark:text-dark-300 mb-2">Konum (Haritada tıklayarak belirleyin)</label>
+                                        <div class="rounded-lg overflow-hidden border border-gray-200 dark:border-dark-600 shadow-sm">
+                                            <div id="editMap" class="h-64 w-full"></div>
+                                        </div>
+                                        <p class="mt-1.5 text-xs text-dark-500 dark:text-dark-400">Haritada bir noktaya tıklayarak veya aşağıdaki koordinatları girerek konum belirleyebilirsiniz.</p>
+                                    </div>
+                                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                        <div class="p-4 rounded-lg bg-gray-50 dark:bg-dark-700 border border-gray-100 dark:border-dark-600">
+                                            <label for="latitude" class="block text-sm font-medium text-dark-700 dark:text-dark-300 mb-2">Enlem (Latitude)</label>
+                                            <div class="relative">
+                                                <input type="text" id="latitude" x-model="editData.latitude" 
+                                                       class="w-full p-2.5 bg-white dark:bg-dark-800 border border-gray-300 dark:border-dark-600 text-dark-700 dark:text-dark-300 rounded-lg focus:ring-2 focus:ring-primary-500 dark:focus:ring-primary-500 focus:border-primary-500 dark:focus:border-primary-500">
+                                                <div class="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none text-dark-400 dark:text-dark-500">
+                                                    <span class="text-xs">°N/S</span>
+                                                </div>
+                                            </div>
+                                            <p class="mt-1.5 text-xs text-dark-500 dark:text-dark-400">Kuzey yarımküre için pozitif (N), güney yarımküre için negatif (S) değer girin</p>
+                                        </div>
+                                        <div class="p-4 rounded-lg bg-gray-50 dark:bg-dark-700 border border-gray-100 dark:border-dark-600">
+                                            <label for="longitude" class="block text-sm font-medium text-dark-700 dark:text-dark-300 mb-2">Boylam (Longitude)</label>
+                                            <div class="relative">
+                                                <input type="text" id="longitude" x-model="editData.longitude" 
+                                                       class="w-full p-2.5 bg-white dark:bg-dark-800 border border-gray-300 dark:border-dark-600 text-dark-700 dark:text-dark-300 rounded-lg focus:ring-2 focus:ring-primary-500 dark:focus:ring-primary-500 focus:border-primary-500 dark:focus:border-primary-500">
+                                                <div class="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none text-dark-400 dark:text-dark-500">
+                                                    <span class="text-xs">°E/W</span>
+                                                </div>
+                                            </div>
+                                            <p class="mt-1.5 text-xs text-dark-500 dark:text-dark-400">Doğu yarımküre için pozitif (E), batı yarımküre için negatif (W) değer girin</p>
+                                        </div>
+                                    </div>
+                                    <div class="mt-4 p-4 rounded-lg bg-yellow-50 dark:bg-yellow-900/10 border border-yellow-100 dark:border-yellow-800/20">
+                                        <p class="text-sm text-yellow-800 dark:text-yellow-300 flex items-start">
+                                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                                            </svg>
+                                            <span>Görseller üzerindeki konum bilgisi kişisel gizliliğinizi etkileyebilir. Görseli başkalarıyla paylaşmadan önce konum bilgisini kaldırmayı düşünebilirsiniz.</span>
+                                        </p>
+                                    </div>
+                                </div>
+                            </template>
+                        </div>
+
+                        <!-- Camera Tab -->
+                        <div x-show="activeTab === 'camera'" x-transition:enter="transition ease-out duration-200" x-transition:enter-start="opacity-0" x-transition:enter-end="opacity-100" class="mt-4">
+                            <template x-if="!isEditing">
+                                <div class="space-y-3">
+                                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                        <div class="p-4 rounded-lg bg-gray-50 dark:bg-dark-700 border border-gray-100 dark:border-dark-600 hover:shadow-soft transition-all duration-300">
+                                            <div class="flex justify-between items-start mb-2">
+                                                <h3 class="text-sm font-medium text-dark-600 dark:text-dark-300">Kamera Markası</h3>
+                                                <span class="px-2 py-1 text-xs rounded-full bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400">Make</span>
+                                            </div>
+                                            <p class="text-sm text-dark-800 dark:text-dark-200 font-mono" x-text="exifData.Make || 'Bilinmiyor'"></p>
+                                        </div>
+                                        <div class="p-4 rounded-lg bg-gray-50 dark:bg-dark-700 border border-gray-100 dark:border-dark-600 hover:shadow-soft transition-all duration-300">
+                                            <div class="flex justify-between items-start mb-2">
+                                                <h3 class="text-sm font-medium text-dark-600 dark:text-dark-300">Kamera Modeli</h3>
+                                                <span class="px-2 py-1 text-xs rounded-full bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400">Model</span>
+                                            </div>
+                                            <p class="text-sm text-dark-800 dark:text-dark-200 font-mono" x-text="exifData.Model || 'Bilinmiyor'"></p>
+                                        </div>
+                                        <div class="p-4 rounded-lg bg-gray-50 dark:bg-dark-700 border border-gray-100 dark:border-dark-600 hover:shadow-soft transition-all duration-300">
+                                            <div class="flex justify-between items-start mb-2">
+                                                <h3 class="text-sm font-medium text-dark-600 dark:text-dark-300">Pozlama Süresi</h3>
+                                                <span class="px-2 py-1 text-xs rounded-full bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400">ExposureTime</span>
+                                            </div>
+                                            <p class="text-sm text-dark-800 dark:text-dark-200 font-mono" x-text="exifData.ExposureTime ? formatExposureTime(exifData.ExposureTime) : 'Bilinmiyor'"></p>
+                                        </div>
+                                        <div class="p-4 rounded-lg bg-gray-50 dark:bg-dark-700 border border-gray-100 dark:border-dark-600 hover:shadow-soft transition-all duration-300">
+                                            <div class="flex justify-between items-start mb-2">
+                                                <h3 class="text-sm font-medium text-dark-600 dark:text-dark-300">Diyafram</h3>
+                                                <span class="px-2 py-1 text-xs rounded-full bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400">FNumber</span>
+                                            </div>
+                                            <p class="text-sm text-dark-800 dark:text-dark-200 font-mono" x-text="exifData.FNumber ? 'f/' + exifData.FNumber : 'Bilinmiyor'"></p>
+                                        </div>
+                                        <div class="p-4 rounded-lg bg-gray-50 dark:bg-dark-700 border border-gray-100 dark:border-dark-600 hover:shadow-soft transition-all duration-300">
+                                            <div class="flex justify-between items-start mb-2">
+                                                <h3 class="text-sm font-medium text-dark-600 dark:text-dark-300">ISO</h3>
+                                                <span class="px-2 py-1 text-xs rounded-full bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400">ISOSpeedRatings</span>
+                                            </div>
+                                            <p class="text-sm text-dark-800 dark:text-dark-200 font-mono" x-text="exifData.ISOSpeedRatings || 'Bilinmiyor'"></p>
+                                        </div>
+                                        <div class="p-4 rounded-lg bg-gray-50 dark:bg-dark-700 border border-gray-100 dark:border-dark-600 hover:shadow-soft transition-all duration-300">
+                                            <div class="flex justify-between items-start mb-2">
+                                                <h3 class="text-sm font-medium text-dark-600 dark:text-dark-300">Odak Uzaklığı</h3>
+                                                <span class="px-2 py-1 text-xs rounded-full bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400">FocalLength</span>
+                                            </div>
+                                            <p class="text-sm text-dark-800 dark:text-dark-200 font-mono" x-text="exifData.FocalLength ? exifData.FocalLength + ' mm' : 'Bilinmiyor'"></p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </template>
+                            <template x-if="isEditing">
+                                <div class="space-y-4">
+                                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                        <div class="p-4 rounded-lg bg-gray-50 dark:bg-dark-700 border border-gray-100 dark:border-dark-600">
+                                            <label for="Make" class="block text-sm font-medium text-dark-700 dark:text-dark-300 mb-2">Kamera Markası</label>
+                                            <input type="text" id="Make" x-model="editData.Make" 
+                                                   class="w-full p-2.5 bg-white dark:bg-dark-800 border border-gray-300 dark:border-dark-600 text-dark-700 dark:text-dark-300 rounded-lg focus:ring-2 focus:ring-primary-500 dark:focus:ring-primary-500 focus:border-primary-500 dark:focus:border-primary-500">
+                                            <p class="mt-1.5 text-xs text-dark-500 dark:text-dark-400">Örn: Canon, Nikon, Sony, vb.</p>
+                                        </div>
+                                        <div class="p-4 rounded-lg bg-gray-50 dark:bg-dark-700 border border-gray-100 dark:border-dark-600">
+                                            <label for="Model" class="block text-sm font-medium text-dark-700 dark:text-dark-300 mb-2">Kamera Modeli</label>
+                                            <input type="text" id="Model" x-model="editData.Model" 
+                                                   class="w-full p-2.5 bg-white dark:bg-dark-800 border border-gray-300 dark:border-dark-600 text-dark-700 dark:text-dark-300 rounded-lg focus:ring-2 focus:ring-primary-500 dark:focus:ring-primary-500 focus:border-primary-500 dark:focus:border-primary-500">
+                                            <p class="mt-1.5 text-xs text-dark-500 dark:text-dark-400">Örn: EOS R5, Z9, Alpha a7 IV, vb.</p>
+                                        </div>
+                                    </div>
+                                    <div class="p-4 rounded-lg bg-blue-50 dark:bg-blue-900/10 border border-blue-100 dark:border-blue-800/20">
+                                        <p class="text-sm text-blue-800 dark:text-blue-300 flex items-start">
+                                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                            </svg>
+                                            <span>Şu an yalnızca kamera marka ve model bilgileri düzenlenebilir. Diğer kamera parametreleri (pozlama, ISO, vb.) düzenlenemez.</span>
+                                        </p>
+                                    </div>
+                                </div>
+                            </template>
+                        </div>
+
+                        <!-- Save button for editing mode -->
+                        <div x-show="isEditing" x-transition class="mt-6 flex justify-end">
+                            <button 
+                                @click="saveExifData" 
+                                class="inline-flex items-center px-5 py-2.5 rounded-lg bg-gradient-to-r from-secondary-500 to-secondary-600 text-white shadow-sm hover:shadow transition-all duration-200"
+                                :class="{'opacity-75 cursor-not-allowed': isSaving}"
+                                :disabled="isSaving"
+                            >
+                                <svg x-show="!isSaving" xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                                </svg>
+                                <svg x-show="isSaving" x-cloak class="animate-spin -ml-1 mr-2 h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                </svg>
+                                <span x-text="isSaving ? 'Kaydediliyor...' : 'Değişiklikleri Kaydet'"></span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Toast notification -->
+    <div 
+        x-show="toast.show" 
+        x-transition:enter="transition ease-out duration-300"
+        x-transition:enter-start="opacity-0 transform translate-y-2"
+        x-transition:enter-end="opacity-100 transform translate-y-0"
+        x-transition:leave="transition ease-in duration-200"
+        x-transition:leave-start="opacity-100 transform translate-y-0"
+        x-transition:leave-end="opacity-0 transform translate-y-2"
+        class="fixed bottom-4 right-4 px-4 py-2 rounded-lg shadow-lg z-50 flex items-center"
+        :class="toast.type === 'success' ? 'bg-green-500 text-white' : 'bg-red-500 text-white'"
+    >
+        <div class="mr-3 bg-white rounded-full p-1 flex-shrink-0">
+            <svg x-show="toast.type === 'success'" class="w-4 h-4 text-green-500" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
+                <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"></path>
+            </svg>
+            <svg x-show="toast.type === 'error'" class="w-4 h-4 text-red-500" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
+                <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"></path>
+            </svg>
+        </div>
+        <div>
+            <p class="font-medium text-sm" x-text="toast.message"></p>
+        </div>
+    </div>
+    
+    <!-- No EXIF data message -->
+    <div x-show="!currentImage" 
+         x-transition:enter="transition ease-out duration-300"
+         x-transition:enter-start="opacity-0 transform translate-y-4"
+         x-transition:enter-end="opacity-100 transform translate-y-0"
+         class="text-center py-16">
+        <div class="inline-flex items-center justify-center w-16 h-16 rounded-full bg-primary-100 dark:bg-primary-900/20 text-primary-500 mb-4 animate-float">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+        </div>
+        <p class="text-lg text-dark-500 dark:text-dark-400">EXIF verilerini görüntülemek ve düzenlemek için bir görsel yükleyin</p>
+        <p class="mt-2 text-sm text-dark-400 dark:text-dark-500 max-w-md mx-auto">Fotoğrafınızın tarih, zaman, konum ve kamera bilgilerini görüntüleyebilir ve düzenleyebilirsiniz.</p>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    function imageUploader() {
+        return {
+            isDragging: false,
+            isUploading: false,
+            isSaving: false,
+            currentImage: null,
+            exifData: {},
+            isEditing: false,
+            editData: {},
+            activeTab: 'basic',
+            map: null,
+            editMap: null,
+            marker: null,
+            editMarker: null,
+            toast: {
+                show: false,
+                message: '',
+                type: 'success'
+            },
+            
+            init() {
+                // Watch for changes to activeTab to initialize maps when needed
+                this.$watch('activeTab', (value) => {
+                    if (value === 'location' && this.hasGpsData && !this.isEditing) {
+                        this.initMap();
+                    }
+                    if (value === 'location' && this.isEditing) {
+                        this.initEditMap();
+                    }
+                });
+                
+                // Watch for changes to isEditing to initialize edit map when needed
+                this.$watch('isEditing', (value) => {
+                    if (value && this.activeTab === 'location') {
+                        this.initEditMap();
+                    }
+                });
+            },
+            
+            handleFileSelect(event) {
+                const file = event.target.files[0];
+                if (file) {
+                    this.uploadFile(file);
+                }
+            },
+            
+            handleDrop(event) {
+                this.isDragging = false;
+                const files = event.dataTransfer.files;
+                if (files.length > 0) {
+                    this.uploadFile(files[0]);
+                }
+            },
+            
+            uploadFile(file) {
+                if (!file || !file.type.startsWith('image/')) {
+                    this.showToast('Lütfen geçerli bir görsel dosyası seçin.', 'error');
+                    return;
+                }
+                
+                // File size check (10MB limit)
+                if (file.size > 10 * 1024 * 1024) {
+                    this.showToast('Dosya boyutu 10MB\'dan küçük olmalıdır.', 'error');
+                    return;
+                }
+                
+                this.isUploading = true;
+                
+                // Create form data for the upload
+                const formData = new FormData();
+                formData.append('file', file);
+                
+                // Send the file to the server
+                fetch('/upload', {
+                    method: 'POST',
+                    body: formData
+                })
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error('Dosya yükleme hatası: ' + response.statusText);
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    if (data.success) {
+                        console.log("Server response:", data); // Log the server response
+                        this.currentImage = data.filename;
+                        this.exifData = data.exif_data || {};
+                        
+                        // Debug logs to see the exif data
+                        console.log("EXIF data received:", this.exifData);
+                        
+                        // Check if exifData has expected properties
+                        if (Object.keys(this.exifData).length === 0) {
+                            console.warn("No EXIF data found in the image");
+                        }
+                        
+                        this.prepareEditData();
+                        this.activeTab = 'basic';
+                        this.showToast('Görsel başarıyla yüklendi', 'success');
+                        
+                        // Force UI update by triggering a data refresh
+                        this.$nextTick(() => {
+                            // Initialize the map if GPS data is present and location tab is active
+                            if (this.activeTab === 'location' && this.hasGpsData) {
+                                this.initMap();
+                            }
+                        });
+                    } else {
+                        throw new Error(data.error || 'Bilinmeyen bir hata oluştu');
+                    }
+                })
+                .catch(error => {
+                    console.error('Upload error:', error);
+                    this.showToast(error.message, 'error');
+                })
+                .finally(() => {
+                    this.isUploading = false;
+                });
+            },
+            
+            prepareEditData() {
+                // Log the exif data before preparing the edit data
+                console.log("Preparing edit data from:", this.exifData);
+                
+                // Prepare data for editing based on the current EXIF data
+                this.editData = {
+                    // Date fields
+                    DateTimeOriginal: this.formatDateForInput(this.exifData.DateTimeOriginal),
+                    DateTime: this.formatDateForInput(this.exifData.DateTime),
+                    DateTimeDigitized: this.formatDateForInput(this.exifData.DateTimeDigitized),
+                    
+                    // Camera fields
+                    Make: this.exifData.Make || '',
+                    Model: this.exifData.Model || '',
+                    
+                    // GPS fields (if they exist)
+                    latitude: this.getLatitude() || '',
+                    longitude: this.getLongitude() || '',
+                };
+                
+                console.log("Edit data prepared:", this.editData);
+            },
+            
+            formatDateForInput(dateString) {
+                if (!dateString) return '';
+                
+                // EXIF dates are typically in "2023:01:30 15:30:45" format
+                // HTML datetime-local needs "2023-01-30T15:30:45" format
+                try {
+                    // Replace colons in the date part with dashes
+                    const parts = dateString.split(' ');
+                    if (parts.length !== 2) return '';
+                    
+                    const datePart = parts[0].replace(/:/g, '-');
+                    const timePart = parts[1];
+                    
+                    return `${datePart}T${timePart}`;
+                } catch (e) {
+                    console.error('Date formatting error:', e);
+                    return '';
+                }
+            },
+            
+            formatInputForExif(inputDateString) {
+                if (!inputDateString) return '';
+                
+                // Convert from "2023-01-30T15:30:45" back to "2023:01:30 15:30:45"
+                try {
+                    const parts = inputDateString.split('T');
+                    if (parts.length !== 2) return '';
+                    
+                    const datePart = parts[0].replace(/-/g, ':');
+                    const timePart = parts[1];
+                    
+                    return `${datePart} ${timePart}`;
+                } catch (e) {
+                    console.error('Date formatting error:', e);
+                    return '';
+                }
+            },
+            
+            saveExifData() {
+                if (!this.currentImage) {
+                    this.showToast('Kaydedilecek görsel bulunamadı', 'error');
+                    return;
+                }
+                
+                this.isSaving = true;
+                
+                // Prepare the update data
+                const updateData = {};
+                
+                // Add date fields if they've been edited
+                if (this.editData.DateTimeOriginal) {
+                    updateData.DateTimeOriginal = this.formatInputForExif(this.editData.DateTimeOriginal);
+                }
+                if (this.editData.DateTime) {
+                    updateData.DateTime = this.formatInputForExif(this.editData.DateTime);
+                }
+                if (this.editData.DateTimeDigitized) {
+                    updateData.DateTimeDigitized = this.formatInputForExif(this.editData.DateTimeDigitized);
+                }
+                
+                // Add camera info if edited
+                if (this.editData.Make) {
+                    updateData.Make = this.editData.Make;
+                }
+                if (this.editData.Model) {
+                    updateData.Model = this.editData.Model;
+                }
+                
+                // Add GPS data if it exists and was edited
+                if (this.editData.latitude !== '' && this.editData.longitude !== '') {
+                    // Convert to the format expected by the backend
+                    const lat = parseFloat(this.editData.latitude);
+                    const lng = parseFloat(this.editData.longitude);
+                    
+                    if (!isNaN(lat) && !isNaN(lng)) {
+                        updateData.GPSInfo = {
+                            GPSLatitude: Math.abs(lat),
+                            GPSLatitudeRef: lat >= 0 ? 'N' : 'S',
+                            GPSLongitude: Math.abs(lng),
+                            GPSLongitudeRef: lng >= 0 ? 'E' : 'W'
+                        };
+                    }
+                }
+                
+                // Send the update to the server
+                fetch(`/exif/${this.currentImage}`, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(updateData)
+                })
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error('EXIF verilerini güncelleme hatası: ' + response.statusText);
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    if (data.success) {
+                        // Refresh EXIF data from the server
+                        this.fetchExifData();
+                        this.isEditing = false;
+                        this.showToast('EXIF verileri başarıyla güncellendi', 'success');
+                    } else {
+                        throw new Error(data.error || 'Bilinmeyen bir hata oluştu');
+                    }
+                })
+                .catch(error => {
+                    console.error('Update error:', error);
+                    this.showToast(error.message, 'error');
+                })
+                .finally(() => {
+                    this.isSaving = false;
+                });
+            },
+            
+            fetchExifData() {
+                if (!this.currentImage) return;
+                
+                fetch(`/exif/${this.currentImage}`)
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error('EXIF verilerini alma hatası: ' + response.statusText);
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    this.exifData = data;
+                    this.prepareEditData();
+                    
+                    // Initialize map if we're on the location tab and have GPS data
+                    if (this.activeTab === 'location' && this.hasGpsData) {
+                        this.initMap();
+                    }
+                })
+                .catch(error => {
+                    console.error('Fetch EXIF error:', error);
+                });
+            },
+            
+            formatLatLong(coord) {
+                if (coord === null || coord === undefined) return 'Bilinmiyor';
+                return coord.toFixed(6) + '°';
+            },
+            
+            getLatitude() {
+                if (!this.exifData.GPSInfo) return null;
+                let lat = this.exifData.GPSInfo.GPSLatitude;
+                let latRef = this.exifData.GPSInfo.GPSLatitudeRef;
+                
+                if (lat !== undefined && lat !== null) {
+                    // Handle different formats (number or array)
+                    if (typeof lat === 'number') {
+                        return latRef === 'S' ? -lat : lat;
+                    } else if (Array.isArray(lat) && lat.length === 3) {
+                        // Convert from degrees, minutes, seconds format
+                        const degrees = lat[0];
+                        const minutes = lat[1] / 60;
+                        const seconds = lat[2] / 3600;
+                        const decimal = degrees + minutes + seconds;
+                        return latRef === 'S' ? -decimal : decimal;
+                    }
+                }
+                return null;
+            },
+            
+            getLongitude() {
+                if (!this.exifData.GPSInfo) return null;
+                let lng = this.exifData.GPSInfo.GPSLongitude;
+                let lngRef = this.exifData.GPSInfo.GPSLongitudeRef;
+                
+                if (lng !== undefined && lng !== null) {
+                    // Handle different formats (number or array)
+                    if (typeof lng === 'number') {
+                        return lngRef === 'W' ? -lng : lng;
+                    } else if (Array.isArray(lng) && lng.length === 3) {
+                        // Convert from degrees, minutes, seconds format
+                        const degrees = lng[0];
+                        const minutes = lng[1] / 60;
+                        const seconds = lng[2] / 3600;
+                        const decimal = degrees + minutes + seconds;
+                        return lngRef === 'W' ? -decimal : decimal;
+                    }
+                }
+                return null;
+            },
+            
+            get hasGpsData() {
+                const lat = this.getLatitude();
+                const lng = this.getLongitude();
+                return lat !== null && lng !== null;
+            },
+            
+            showToast(message, type = 'success') {
+                this.toast.message = message;
+                this.toast.type = type;
+                this.toast.show = true;
+                
+                setTimeout(() => {
+                    this.toast.show = false;
+                }, 3000);
+            },
+            
+            formatFileSize(bytes) {
+                if (!bytes) return 'Bilinmiyor';
+                const units = ['B', 'KB', 'MB', 'GB'];
+                let value = bytes;
+                let unitIndex = 0;
+                
+                while (value > 1024 && unitIndex < units.length - 1) {
+                    value /= 1024;
+                    unitIndex++;
+                }
+                
+                return `${value.toFixed(2)} ${units[unitIndex]}`;
+            },
+            
+            formatExposureTime(time) {
+                if (!time) return 'Bilinmiyor';
+                
+                // Check if time is a fraction (common format in EXIF data like "1/100")
+                if (typeof time === 'string' && time.includes('/')) {
+                    return time + ' s';
+                }
+                
+                // If it's a decimal value
+                if (typeof time === 'number') {
+                    if (time >= 1) {
+                        return time.toFixed(1) + ' s';
+                    } else {
+                        // Convert to fraction format (e.g., 0.01 -> 1/100)
+                        const denominator = Math.round(1 / time);
+                        return `1/${denominator} s`;
+                    }
+                }
+                
+                return time + ' s';
+            },
+            
+            initMap() {
+                if (this.hasGpsData) {
+                    setTimeout(() => {
+                        const lat = this.getLatitude();
+                        const lng = this.getLongitude();
+                        
+                        if (lat && lng) {
+                            // If a map already exists, remove it to prevent duplicates
+                            if (this.map) {
+                                this.map.remove();
+                            }
+                            
+                            this.map = L.map('map').setView([lat, lng], 13);
+                            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                                attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+                            }).addTo(this.map);
+                            this.marker = L.marker([lat, lng]).addTo(this.map);
+                        }
+                    }, 300);
+                }
+            },
+            
+            initEditMap() {
+                if (this.isEditing && this.activeTab === 'location') {
+                    setTimeout(() => {
+                        // Default to a central location if no coordinates are available
+                        let lat = this.editData.latitude || 41.0082;  // Default to Istanbul if no coordinates
+                        let lng = this.editData.longitude || 28.9784;
+                        
+                        if (typeof lat === 'string') lat = parseFloat(lat) || 41.0082;
+                        if (typeof lng === 'string') lng = parseFloat(lng) || 28.9784;
+                        
+                        // If we have existing GPS data, use it as starting point
+                        if (this.hasGpsData) {
+                            lat = this.getLatitude() || lat;
+                            lng = this.getLongitude() || lng;
+                            this.editData.latitude = lat;
+                            this.editData.longitude = lng;
+                        }
+                        
+                        // If an edit map already exists, remove it
+                        if (this.editMap) {
+                            this.editMap.remove();
+                        }
+                        
+                        this.editMap = L.map('editMap').setView([lat, lng], 13);
+                        
+                        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+                        }).addTo(this.editMap);
+                        
+                        // Add marker if we have coordinates
+                        this.editMarker = L.marker([lat, lng], {draggable: true}).addTo(this.editMap);
+                        this.editMarker.on('dragend', (event) => {
+                            const position = this.editMarker.getLatLng();
+                            this.editData.latitude = position.lat;
+                            this.editData.longitude = position.lng;
+                        });
+                        
+                        // Allow clicking on the map to update marker
+                        this.editMap.on('click', (event) => {
+                            const position = event.latlng;
+                            this.editData.latitude = position.lat;
+                            this.editData.longitude = position.lng;
+                            this.editMarker.setLatLng(position);
+                        });
+                    }, 300);
+                }
+            }
+        };
+    }
+</script>
+{% endblock %} 
