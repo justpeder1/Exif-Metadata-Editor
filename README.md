@@ -41,7 +41,7 @@ Follow these instructions to get the project up and running on your local machin
 
 1.  **Clone the repository:**
     ```bash
-    git clone https://github.com/yourusername/exif-metadata-editor # Replace with your repo URL
+    git clone https://github.com/justpeder1/Exif-Metadata-Editor
     cd exif-metadata-editor
     ```
 
