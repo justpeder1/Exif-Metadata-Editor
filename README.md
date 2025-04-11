@@ -2,6 +2,8 @@
 
 A modern and intuitive web application designed to help you view, edit, and save EXIF (Exchangeable Image File Format) metadata for your images. Easily modify details like date, time, GPS coordinates, and camera information, then save the updated data directly back to the image file.
 
+Original repository: [https://github.com/justpeder1/Exif-Metadata-Editor](https://github.com/justpeder1/Exif-Metadata-Editor)
+
 ---
 
 ## 🌟 Features
@@ -12,6 +14,8 @@ A modern and intuitive web application designed to help you view, edit, and save
     *   📅 Date & Time (DateTimeOriginal, DateTime, DateTimeDigitized)
     *   📍 GPS Location (Latitude, Longitude)
     *   📸 Camera Information (Make, Model)
+*   🗑️ **Metadata Removal:** Easily strip all EXIF metadata from your images for privacy.
+*   ⬇️ **Image Download:** Download your images with or without metadata after editing.
 *   🗺️ **Interactive Map:** Visual map interface (using Leaflet.js) for viewing and setting GPS coordinates.
 *   🎨 **Modern UI:** Sleek interface built with Tailwind CSS.
 *   🌗 **Dark/Light Mode:** Toggle between themes for comfortable viewing.
@@ -92,6 +96,18 @@ Follow these instructions to get the project up and running on your local machin
 3.  **Edit:** Click "Metadata Düzenle" (Edit Metadata).
 4.  **Modify:** Make changes in the input fields or click on the map to set a location.
 5.  **Save:** Click "Değişiklikleri Kaydet" (Save Changes) to apply the modifications to the image file's metadata.
+6.  **Remove Metadata:** Click "Metadata Sil" to strip all EXIF data from the image.
+7.  **Download:** Use the "Resmi İndir" button to download the image with or without metadata.
+
+---
+
+## 🔒 Privacy Features
+
+This tool includes features designed to help protect your privacy:
+
+* Remove all EXIF metadata from images before sharing them online
+* Strip out GPS location data that might reveal sensitive location information
+* Download processed images with metadata removed
 
 ---
 
@@ -103,4 +119,4 @@ Contributions are welcome! Please feel free to submit pull requests or open issu
 
 ## 📄 License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details (if one exists, otherwise specify license type). 
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details. 

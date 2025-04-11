@@ -155,21 +155,33 @@
                     </svg>
                     Mevcut EXIF Bilgisi
                 </h2>
-                <button 
-                    @click="isEditing = !isEditing" 
-                    class="inline-flex items-center px-4 py-2 rounded-lg transition-all duration-200"
-                    :class="isEditing ? 
-                            'bg-red-100 text-red-600 hover:bg-red-200 dark:bg-red-900/20 dark:text-red-400 dark:hover:bg-red-900/30' : 
-                            'bg-primary-100 text-primary-600 hover:bg-primary-200 dark:bg-primary-900/20 dark:text-primary-400 dark:hover:bg-primary-900/30'"
-                >
-                    <svg x-show="!isEditing" xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-1.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
-                    </svg>
-                    <svg x-show="isEditing" x-cloak xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-1.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
-                    </svg>
-                    <span x-text="isEditing ? 'İptal' : 'Metadata Düzenle'"></span>
-                </button>
+                <div class="flex space-x-2">
+                    <button 
+                        @click="removeExifData" 
+                        class="inline-flex items-center px-4 py-2 rounded-lg transition-all duration-200 bg-red-100 text-red-600 hover:bg-red-200 dark:bg-red-900/20 dark:text-red-400 dark:hover:bg-red-900/30"
+                        x-show="!isEditing"
+                    >
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-1.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                        </svg>
+                        Metadata Sil
+                    </button>
+                    <button 
+                        @click="isEditing = !isEditing" 
+                        class="inline-flex items-center px-4 py-2 rounded-lg transition-all duration-200"
+                        :class="isEditing ? 
+                                'bg-red-100 text-red-600 hover:bg-red-200 dark:bg-red-900/20 dark:text-red-400 dark:hover:bg-red-900/30' : 
+                                'bg-primary-100 text-primary-600 hover:bg-primary-200 dark:bg-primary-900/20 dark:text-primary-400 dark:hover:bg-primary-900/30'"
+                    >
+                        <svg x-show="!isEditing" xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-1.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                        </svg>
+                        <svg x-show="isEditing" x-cloak xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-1.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                        <span x-text="isEditing ? 'İptal' : 'Metadata Düzenle'"></span>
+                    </button>
+                </div>
             </div>
             
             <div class="p-6">
@@ -204,6 +216,15 @@
                                     <span class="text-dark-500 dark:text-dark-500">Yükseklik:</span>
                                     <span class="font-medium" x-text="exifData.ImageLength ? exifData.ImageLength + ' px' : 'Bilinmiyor'"></span>
                                 </p>
+                            </div>
+                            
+                            <div class="mt-4 pt-3 border-t border-primary-100 dark:border-primary-800/20">
+                                <a @click="downloadImage" class="w-full flex items-center justify-center px-4 py-2 rounded-lg bg-primary-100 text-primary-600 hover:bg-primary-200 dark:bg-primary-900/20 dark:text-primary-400 dark:hover:bg-primary-900/30 transition-all duration-200 cursor-pointer">
+                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-1.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                                    </svg>
+                                    Resmi İndir
+                                </a>
                             </div>
                         </div>
                     </div>
@@ -1080,6 +1101,66 @@
                         });
                     }, 300);
                 }
+            },
+            removeExifData() {
+                if (!this.currentImage) {
+                    this.showToast('Silinecek metadata bulunamadı', 'error');
+                    return;
+                }
+                
+                if (!confirm('Bu resmin tüm metadata bilgilerini silmek istediğinizden emin misiniz? Bu işlem geri alınamaz.')) {
+                    return;
+                }
+                
+                fetch(`/exif/${this.currentImage}/remove`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    }
+                })
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error('EXIF verilerini silme hatası: ' + response.statusText);
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    if (data.success) {
+                        // Refresh EXIF data from the server
+                        this.fetchExifData();
+                        this.showToast('EXIF verileri başarıyla silindi', 'success');
+                    } else {
+                        throw new Error(data.error || 'Bilinmeyen bir hata oluştu');
+                    }
+                })
+                .catch(error => {
+                    console.error('Remove EXIF error:', error);
+                    this.showToast(error.message, 'error');
+                });
+            },
+            downloadImage() {
+                if (!this.currentImage) {
+                    this.showToast('İndirilecek görsel bulunamadı', 'error');
+                    return;
+                }
+                
+                // Resmin URL'sini oluştur
+                const imageUrl = `/uploads/${this.currentImage}`;
+                
+                // Tarayıcı indirme işlemini başlat
+                const link = document.createElement('a');
+                link.href = imageUrl;
+                
+                // İndirilen dosyanın adını orijinal dosya adı olarak ayarla
+                link.download = this.currentImage.split('_').slice(1).join('_');
+                link.target = '_blank';
+                
+                // Linki tetikle ve indir
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                
+                this.showToast('Resim indiriliyor...', 'success');
             }
         };
     }

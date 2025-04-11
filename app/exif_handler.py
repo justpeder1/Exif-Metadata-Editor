@@ -156,4 +156,30 @@ def update_exif_data(image_path, updated_exif):
             
     except Exception as e:
         print(f"Error updating EXIF data: {e}")
+        return False
+
+def remove_exif_data(image_path):
+    """Remove all EXIF metadata from an image while preserving its format"""
+    try:
+        # Open the original image
+        with Image.open(image_path) as img:
+            # Get the original format
+            img_format = img.format
+            
+            # Create a new image without EXIF data
+            img_without_exif = Image.new(img.mode, img.size)
+            img_without_exif.putdata(list(img.getdata()))
+            
+            # Save to a temporary file without EXIF
+            temp_path = image_path + '.temp'
+            img_without_exif.save(temp_path, format=img_format)
+            
+            # Replace original with the temp file
+            os.replace(temp_path, image_path)
+            
+            print(f"EXIF data removed from {image_path}")
+            return True
+            
+    except Exception as e:
+        print(f"Error removing EXIF data: {e}")
         return False 
